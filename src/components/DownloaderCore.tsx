@@ -173,8 +173,13 @@ export function DownloaderCore({ initialPlatform, onNavigate, onAuthRequired }: 
     setStatus('fetching_info');
     setError('');
 
+    let isCancelled = false;
+
     try {
       const data = await fetchMediaInfo(url);
+
+      if (isCancelled) return;
+
       setVideoInfo(data);
 
       // Smart defaults
@@ -188,10 +193,16 @@ export function DownloaderCore({ initialPlatform, onNavigate, onAuthRequired }: 
 
       setStatus('idle');
     } catch (err) {
+      if (isCancelled) return;
+
       console.error(err);
       setError(err instanceof Error ? err.message : ERROR_MESSAGES.GENERIC_ERROR);
       setStatus('error');
     }
+
+    return () => {
+      isCancelled = true;
+    };
   };
 
   const handleConvert = async () => {
@@ -206,9 +217,13 @@ export function DownloaderCore({ initialPlatform, onNavigate, onAuthRequired }: 
     setStatus('converting');
     setError('');
 
+    let isCancelled = false;
+
     try {
       const formatParam = FORMAT_MAPPING.getFormatParam(selectedType, selectedQuality);
       const data = await convertMedia(url, formatParam, user?.id);
+
+      if (isCancelled) return;
 
       setResult({
         downloadUrl: data.downloadUrl,
@@ -219,10 +234,16 @@ export function DownloaderCore({ initialPlatform, onNavigate, onAuthRequired }: 
 
       setStatus('ready');
     } catch (err) {
+      if (isCancelled) return;
+
       console.error(err);
       setError(err instanceof Error ? err.message : ERROR_MESSAGES.GENERIC_ERROR);
       setStatus('error');
     }
+
+    return () => {
+      isCancelled = true;
+    };
   };
 
   const handleDownloadClick = () => {

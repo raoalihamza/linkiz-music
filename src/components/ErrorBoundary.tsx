@@ -1,5 +1,5 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
 
 interface Props {
     children?: ReactNode;
@@ -8,21 +8,34 @@ interface Props {
 interface State {
     hasError: boolean;
     error: Error | null;
+    errorInfo: ErrorInfo | null;
 }
 
 export class ErrorBoundary extends Component<Props, State> {
     public state: State = {
         hasError: false,
-        error: null
+        error: null,
+        errorInfo: null
     };
 
     public static getDerivedStateFromError(error: Error): State {
-        return { hasError: true, error };
+        return { hasError: true, error, errorInfo: null };
     }
 
     public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
         console.error('Uncaught error:', error, errorInfo);
+        this.setState({ errorInfo });
     }
+
+    private handleReset = () => {
+        this.setState({ hasError: false, error: null, errorInfo: null });
+        window.history.pushState({}, '', '/');
+        window.location.href = '/';
+    };
+
+    private handleReload = () => {
+        window.location.reload();
+    };
 
     public render() {
         if (this.state.hasError) {
@@ -34,7 +47,7 @@ export class ErrorBoundary extends Component<Props, State> {
                         </div>
                         <h2 className="text-2xl font-bold text-gray-900 mb-2">Something went wrong</h2>
                         <p className="text-gray-600 mb-6">
-                            We encountered an unexpected error. Please try reloading functionality.
+                            We encountered an unexpected error. Try going back to the home page or reloading.
                         </p>
 
                         {this.state.error && (
@@ -43,13 +56,22 @@ export class ErrorBoundary extends Component<Props, State> {
                             </div>
                         )}
 
-                        <button
-                            onClick={() => window.location.reload()}
-                            className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition-colors shadow-lg"
-                        >
-                            <RefreshCw className="w-5 h-5" />
-                            Reload Page
-                        </button>
+                        <div className="flex flex-col gap-3">
+                            <button
+                                onClick={this.handleReset}
+                                className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition-colors shadow-lg"
+                            >
+                                <Home className="w-5 h-5" />
+                                Go to Home
+                            </button>
+                            <button
+                                onClick={this.handleReload}
+                                className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-gray-100 text-gray-700 rounded-xl font-semibold hover:bg-gray-200 transition-colors"
+                            >
+                                <RefreshCw className="w-5 h-5" />
+                                Reload Page
+                            </button>
+                        </div>
                     </div>
                 </div>
             );

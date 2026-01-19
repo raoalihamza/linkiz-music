@@ -22,60 +22,90 @@ export function DownloadModal({ isOpen, onClose, linkId, fileName, onUpgrade }: 
   const [downloaded, setDownloaded] = useState(false);
 
   useEffect(() => {
-    if (isOpen && user) {
-      checkQuota();
-      loadFileInfo();
-    }
+    let isMounted = true;
+
+    const loadData = async () => {
+      if (!isOpen || !user) return;
+
+      try {
+        setChecking(true);
+
+        // Load file info and quota in parallel
+        const [linkResult, quotaResult] = await Promise.all([
+          supabase
+            .from('links')
+            .select('file_url, page_id')
+            .eq('id', linkId)
+            .single(),
+          checkDownloadQuota(user.id)
+        ]);
+
+        if (!isMounted) return;
+
+        if (linkResult.data) {
+          setFileUrl(linkResult.data.file_url);
+          setPageId(linkResult.data.page_id);
+        }
+
+        setQuotaCheck(quotaResult);
+      } catch (error) {
+        console.error('Error loading download info:', error);
+        if (isMounted) {
+          setQuotaCheck({ allowed: false, reason: 'Failed to load download information. Please try again.' });
+        }
+      } finally {
+        if (isMounted) {
+          setChecking(false);
+        }
+      }
+    };
+
+    loadData();
+
+    return () => {
+      isMounted = false;
+    };
   }, [isOpen, linkId, user]);
-
-  const loadFileInfo = async () => {
-    const { data: link } = await supabase
-      .from('links')
-      .select('file_url, page_id')
-      .eq('id', linkId)
-      .single();
-
-    if (link) {
-      setFileUrl(link.file_url);
-      setPageId(link.page_id);
-    }
-  };
-
-  const checkQuota = async () => {
-    if (!user) return;
-    setChecking(true);
-    const result = await checkDownloadQuota(user.id);
-    setQuotaCheck(result);
-    setChecking(false);
-  };
 
   const handleDownload = async () => {
     if (!user || !profile || !fileUrl || !pageId) return;
 
     setDownloading(true);
 
-    const recorded = await recordDownload(
-      user.id,
-      linkId,
-      pageId,
-      fileName,
-      profile.plan_type
-    );
+    try {
+      const recorded = await recordDownload(
+        user.id,
+        linkId,
+        pageId,
+        fileName,
+        profile.plan_type
+      );
 
-    if (recorded) {
-      window.open(fileUrl, '_blank');
-      setDownloaded(true);
-      await refreshProfile();
+      if (recorded) {
+        window.open(fileUrl, '_blank');
+        setDownloaded(true);
 
-      setTimeout(() => {
-        onClose();
-        setDownloaded(false);
-      }, 2000);
-    } else {
-      alert('Failed to process download. Please try again.');
+        // Refresh profile to update download count
+        try {
+          await refreshProfile();
+        } catch (error) {
+          console.error('Error refreshing profile:', error);
+          // Continue anyway as download was successful
+        }
+
+        setTimeout(() => {
+          onClose();
+          setDownloaded(false);
+        }, 2000);
+      } else {
+        setQuotaCheck({ allowed: false, reason: 'Failed to process download. Please try again.' });
+      }
+    } catch (error) {
+      console.error('Error downloading file:', error);
+      setQuotaCheck({ allowed: false, reason: 'An error occurred while processing your download.' });
+    } finally {
+      setDownloading(false);
     }
-
-    setDownloading(false);
   };
 
   if (!isOpen) return null;
