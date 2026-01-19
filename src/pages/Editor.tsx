@@ -45,21 +45,20 @@ export function PageEditor({ pageId, onSave, onCancel }: PageEditorProps) {
     if (!pageId) return;
     setLoading(true);
 
-    const [pageResult, linksResult] = await Promise.all([
-      supabase
-        .from('linkiz_pages')
-        .select('*')
-        .eq('id', pageId)
-        .single(),
-      supabase
-        .from('links')
-        .select('*')
-        .eq('page_id', pageId)
-        .order('position')
-    ]);
+    const pageResult = await (supabase
+      .from('linkiz_pages') as any)
+      .select('*')
+      .eq('id', pageId)
+      .single();
 
-    if (pageResult.data) setPage(pageResult.data);
-    if (linksResult.data) setLinks(linksResult.data);
+    const linksResult = await (supabase
+      .from('links') as any)
+      .select('*')
+      .eq('page_id', pageId)
+      .order('position');
+
+    if (pageResult.data) setPage(pageResult.data as LinkizPage);
+    if (linksResult.data) setLinks(linksResult.data as Link[]);
     setLoading(false);
   };
 
@@ -71,43 +70,50 @@ export function PageEditor({ pageId, onSave, onCancel }: PageEditorProps) {
       let savedPageId = pageId;
 
       if (pageId) {
-        await supabase
-          .from('linkiz_pages')
-          .update({
-            title: page.title,
-            description: page.description,
-            slug: page.slug,
-            theme_color: page.theme_color,
-            is_published: page.is_published
-          })
+        const updateData: any = {
+          title: page.title,
+          description: page.description,
+          slug: page.slug,
+          theme_color: page.theme_color,
+          is_published: page.is_published,
+          updated_at: new Date().toISOString()
+        };
+
+        const { error } = await (supabase
+          .from('linkiz_pages') as any)
+          .update(updateData)
           .eq('id', pageId);
+
+        if (error) throw error;
       } else {
-        const { data, error } = await supabase
-          .from('linkiz_pages')
-          .insert({
-            user_id: profile.id,
-            title: page.title || 'My Page',
-            description: page.description || '',
-            slug: page.slug || `page-${Date.now()}`,
-            theme_color: page.theme_color || '#3b82f6',
-            is_published: page.is_published ?? true
-          })
+        const insertData: any = {
+          user_id: profile.id,
+          title: page.title || 'My Page',
+          description: page.description || '',
+          slug: page.slug || `page-${Date.now()}`,
+          theme_color: page.theme_color || '#3b82f6',
+          is_published: page.is_published ?? true
+        };
+
+        const { data, error } = await (supabase
+          .from('linkiz_pages') as any)
+          .insert(insertData)
           .select()
           .single();
 
         if (error) throw error;
-        savedPageId = data.id;
+        savedPageId = (data as any).id;
       }
 
       if (savedPageId) {
-        const { data: existingLinks } = await supabase
-          .from('links')
+        const { data: existingLinks } = await (supabase
+          .from('links') as any)
           .select('id')
           .eq('page_id', savedPageId);
 
         if (existingLinks) {
-          await supabase
-            .from('links')
+          await (supabase
+            .from('links') as any)
             .delete()
             .eq('page_id', savedPageId);
         }
@@ -124,7 +130,7 @@ export function PageEditor({ pageId, onSave, onCancel }: PageEditorProps) {
         }));
 
         if (linksToInsert.length > 0) {
-          await supabase.from('links').insert(linksToInsert);
+          await (supabase.from('links') as any).insert(linksToInsert);
         }
       }
 

@@ -1,20 +1,22 @@
 import { useState } from 'react';
 import { X, Mail, Loader2, AlertCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import toast from 'react-hot-toast';
 
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
+  initialMode?: 'signin' | 'signup';
 }
 
-export function AuthModal({ isOpen, onClose }: AuthModalProps) {
+export function AuthModal({ isOpen, onClose, initialMode = 'signup' }: AuthModalProps) {
   const { signInWithPassword, signUpWithPassword } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signup');
+  const [authMode, setAuthMode] = useState<'signin' | 'signup'>(initialMode);
 
   if (!isOpen) return null;
 
@@ -31,25 +33,36 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
     if (error) {
       if (error.message.includes('Email not confirmed') || error.message.includes('EmailNotConfirmed')) {
         setError('⚠️ La confirmation d\'email est activée dans Supabase. Allez dans Authentication → Providers → Email et désactivez "Confirm email".');
+        toast.error('Email non confirmé. Vérifiez votre boîte de réception.');
       } else if (error.message.includes('Invalid login credentials')) {
         setError('Email ou mot de passe invalide. Vérifiez vos identifiants.');
+        toast.error('Identifiants invalides');
       } else if (error.message.includes('User already registered')) {
         setError('Cet email est déjà enregistré. Utilisez l\'onglet "Se connecter".');
+        toast.error('Email déjà enregistré');
       } else if (error.message.includes('Password should be at least')) {
         setError('Le mot de passe doit contenir au moins 6 caractères.');
+        toast.error('Mot de passe trop court');
       } else if (error.message.includes('Unable to validate email')) {
         setError('Format d\'email invalide. Vérifiez votre adresse email.');
+        toast.error('Email invalide');
       } else {
         setError(`Erreur: ${error.message}`);
+        toast.error('Une erreur est survenue');
       }
       setLoading(false);
     } else {
       if (authMode === 'signup') {
-        setSuccess('Compte créé avec succès!');
+        setSuccess('✅ Compte créé avec succès! Vérifiez votre email pour confirmer votre compte.');
+        toast.success('📧 Email de confirmation envoyé! Vérifiez votre boîte de réception.', {
+          duration: 5000,
+          icon: '✉️',
+        });
         setTimeout(() => {
           onClose();
-        }, 1000);
+        }, 2000);
       } else {
+        toast.success('✅ Connexion réussie!');
         onClose();
       }
       setLoading(false);
@@ -85,11 +98,10 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
               setError('');
               setSuccess('');
             }}
-            className={`flex-1 px-4 py-2 rounded-lg font-medium transition-all ${
-              authMode === 'signup'
+            className={`flex-1 px-4 py-2 rounded-lg font-medium transition-all ${authMode === 'signup'
                 ? 'bg-white text-blue-600 shadow-sm'
                 : 'text-gray-600 hover:text-gray-900'
-            }`}
+              }`}
           >
             Créer un compte
           </button>
@@ -100,11 +112,10 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
               setError('');
               setSuccess('');
             }}
-            className={`flex-1 px-4 py-2 rounded-lg font-medium transition-all ${
-              authMode === 'signin'
+            className={`flex-1 px-4 py-2 rounded-lg font-medium transition-all ${authMode === 'signin'
                 ? 'bg-white text-blue-600 shadow-sm'
                 : 'text-gray-600 hover:text-gray-900'
-            }`}
+              }`}
           >
             Se connecter
           </button>

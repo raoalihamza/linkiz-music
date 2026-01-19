@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Download, Link as LinkIcon, Music, Video, Loader2, CheckCircle, AlertCircle, Youtube, Instagram, Facebook } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { env } from '../config/env';
 
 type ConversionFormat = 'mp3-320' | 'mp4-hd' | 'mp4-sd';
 type ConversionStatus = 'idle' | 'validating' | 'converting' | 'ready' | 'error';
@@ -19,13 +20,6 @@ export function Converter() {
   const [status, setStatus] = useState<ConversionStatus>('idle');
   const [error, setError] = useState('');
   const [result, setResult] = useState<ConversionResult | null>(null);
-
-  const supportedPlatforms = [
-    { name: 'YouTube', icon: Youtube, color: 'text-red-500' },
-    { name: 'Instagram', icon: Instagram, color: 'text-pink-500' },
-    { name: 'Facebook', icon: Facebook, color: 'text-blue-600' },
-    { name: 'TikTok', icon: Music, color: 'text-gray-800' },
-  ];
 
   const formats = [
     { value: 'mp3-320', label: 'MP3 320 kbps', icon: Music, description: 'Haute qualité audio' },
@@ -65,13 +59,13 @@ export function Converter() {
     try {
       setStatus('validating');
 
-      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/converter`;
+      const apiUrl = `${env.supabase.url}/functions/v1/converter`;
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
       };
 
       if (user) {
-        headers['Authorization'] = `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`;
+        headers['Authorization'] = `Bearer ${env.supabase.anonKey}`;
       }
 
       const response = await fetch(apiUrl, {
@@ -182,11 +176,10 @@ For a real implementation, integrate with a conversion service like:
                     <button
                       key={fmt.value}
                       onClick={() => setFormat(fmt.value as ConversionFormat)}
-                      className={`p-4 rounded-xl border-2 transition-all text-left ${
-                        format === fmt.value
-                          ? 'border-blue-500 bg-blue-50'
-                          : 'border-gray-200 hover:border-gray-300 bg-white'
-                      }`}
+                      className={`p-4 rounded-xl border-2 transition-all text-left ${format === fmt.value
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-gray-200 hover:border-gray-300 bg-white'
+                        }`}
                       disabled={status === 'validating' || status === 'converting'}
                     >
                       <div className="flex items-start gap-3">

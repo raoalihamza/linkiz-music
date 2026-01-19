@@ -1,7 +1,7 @@
 import { Download, Music } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
-type View = 'home' | 'dashboard' | 'editor' | 'public-page' | 'converter';
+type View = 'home' | 'dashboard' | 'editor' | 'public-page' | 'converters' | 'playlists';
 
 interface HeaderProps {
   onAuthClick: () => void;
@@ -24,9 +24,9 @@ export function Header({ onAuthClick, onNavigate, currentView }: HeaderProps) {
   const handleConverterClick = (e: React.MouseEvent) => {
     e.preventDefault();
     if (onNavigate) {
-      onNavigate('converter');
+      onNavigate('converters');
     } else {
-      window.location.href = '/converter';
+      window.location.href = '/converters';
     }
   };
 
@@ -36,6 +36,15 @@ export function Header({ onAuthClick, onNavigate, currentView }: HeaderProps) {
       onNavigate('dashboard');
     } else {
       window.location.href = '/dashboard';
+    }
+  };
+
+  const handlePlaylistClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (onNavigate) {
+      onNavigate('playlists');
+    } else {
+      window.location.href = '/playlists';
     }
   };
 
@@ -55,11 +64,10 @@ export function Header({ onAuthClick, onNavigate, currentView }: HeaderProps) {
           <nav className="flex items-center gap-6">
             <button
               onClick={handleConverterClick}
-              className={`flex items-center gap-2 font-medium transition-colors ${
-                currentView === 'converter'
-                  ? 'text-blue-600'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
+              className={`flex items-center gap-2 font-medium transition-colors ${currentView === 'converters'
+                ? 'text-blue-600'
+                : 'text-gray-600 hover:text-gray-900'
+                }`}
             >
               <Download className="w-4 h-4" />
               Convertisseur
@@ -69,13 +77,21 @@ export function Header({ onAuthClick, onNavigate, currentView }: HeaderProps) {
               <>
                 <button
                   onClick={handleDashboardClick}
-                  className={`font-medium transition-colors ${
-                    currentView === 'dashboard'
-                      ? 'text-blue-600'
-                      : 'text-gray-600 hover:text-gray-900'
-                  }`}
+                  className={`font-medium transition-colors ${currentView === 'dashboard'
+                    ? 'text-blue-600'
+                    : 'text-gray-600 hover:text-gray-900'
+                    }`}
                 >
                   Dashboard
+                </button>
+                <button
+                  onClick={handlePlaylistClick}
+                  className={`font-medium transition-colors ${currentView === 'playlists'
+                    ? 'text-blue-600'
+                    : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                >
+                  Playlists
                 </button>
                 <div className="flex items-center gap-3">
                   <div className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-blue-50 to-blue-100 rounded-full">

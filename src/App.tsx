@@ -1,172 +1,230 @@
-import { useState, useEffect } from 'react';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { useState } from 'react';
+import { Routes, Route, Navigate, useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
-import { LandingPage } from './components/LandingPage';
 import { AuthModal } from './components/AuthModal';
-import { Dashboard } from './components/Dashboard';
-import { PageEditor } from './components/PageEditor';
-import { PublicPage } from './components/PublicPage';
-import { DownloadModal } from './components/DownloadModal';
 import { SubscriptionManager } from './components/SubscriptionManager';
-import { Converter } from './components/Converter';
+import { AuthProvider } from './contexts/AuthContext';
+import { ProtectedRoute } from './components/ProtectedRoute';
 
-type View = 'home' | 'dashboard' | 'editor' | 'public-page' | 'converter';
+// Pages
+import { LandingPage } from './pages/Home';
+import { Dashboard } from './pages/Dashboard';
+import { PageEditor } from './pages/Editor';
+import { PublicPage } from './pages/PublicProfile';
+import DownloaderPage from './pages/Downloader';
+import PlaylistManager from './pages/PlaylistManager';
+
+// Converters
+import YouTubePage from './pages/converters/YouTube';
+import InstagramPage from './pages/converters/Instagram';
+import FacebookPage from './pages/converters/Facebook';
+import TikTokPage from './pages/converters/TikTok';
+import SoundCloudPage from './pages/converters/SoundCloud';
+import SpotifyPage from './pages/converters/Spotify';
+import { DownloadModal } from './components/DownloadModal';
 
 function AppContent() {
-  const { user, loading } = useAuth();
-  const [currentView, setCurrentView] = useState<View>('home');
-  const [authModalOpen, setAuthModalOpen] = useState(false);
-  const [subscriptionModalOpen, setSubscriptionModalOpen] = useState(false);
-  const [downloadModalOpen, setDownloadModalOpen] = useState(false);
-  const [selectedDownload, setSelectedDownload] = useState<{ linkId: string; fileName: string } | null>(null);
-  const [pageSlug, setPageSlug] = useState<string>('');
-  const [editingPageId, setEditingPageId] = useState<string | undefined>(undefined);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signup');
+  // State for public page downloads
+  const [downloadModalLink, setDownloadModalLink] = useState<{ id: string, fileName: string } | null>(null);
 
-  useEffect(() => {
-    const path = window.location.pathname;
+  const openAuth = (mode: 'signin' | 'signup' = 'signup') => {
+    setAuthMode(mode);
+    setIsAuthModalOpen(true);
+  };
 
-    if (path === '/') {
-      setCurrentView('home');
-    } else if (path === '/dashboard') {
-      setCurrentView('dashboard');
-    } else if (path === '/converter') {
-      setCurrentView('converter');
-    } else if (path === '/create' || path === '/edit') {
-      setCurrentView('editor');
-    } else if (path.startsWith('/')) {
-      const slug = path.substring(1);
-      if (slug) {
-        setPageSlug(slug);
-        setCurrentView('public-page');
-      }
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!loading && !user && (currentView === 'dashboard' || currentView === 'editor')) {
-      setCurrentView('home');
-      setAuthModalOpen(true);
-    }
-  }, [user, loading, currentView]);
-
-  const handleNavigation = (view: View, slug?: string) => {
-    setCurrentView(view);
-    if (slug) setPageSlug(slug);
-
-    if (view === 'home') {
-      window.history.pushState({}, '', '/');
-    } else if (view === 'dashboard') {
-      window.history.pushState({}, '', '/dashboard');
-    } else if (view === 'converter') {
-      window.history.pushState({}, '', '/converter');
-    } else if (view === 'editor') {
-      window.history.pushState({}, '', '/create');
-    } else if (view === 'public-page' && slug) {
-      window.history.pushState({}, '', `/${slug}`);
+  // Handle navigation from Header
+  const handleNavigation = (view: string) => {
+    switch (view) {
+      case 'home':
+        navigate('/');
+        break;
+      case 'dashboard':
+        navigate('/dashboard');
+        break;
+      case 'converters':
+        navigate('/converters');
+        break;
+      case 'editor':
+        navigate('/create');
+        break;
+      case 'playlists':
+        navigate('/playlists');
+        break;
+      default:
+        navigate('/');
     }
   };
 
-  const handleDownload = (linkId: string, fileName: string) => {
-    if (!user) {
-      setAuthModalOpen(true);
-      return;
-    }
-    setSelectedDownload({ linkId, fileName });
-    setDownloadModalOpen(true);
+  // Determine current view from location
+  const getCurrentView = () => {
+    if (location.pathname === '/') return 'home';
+    if (location.pathname === '/dashboard') return 'dashboard';
+    if (location.pathname.startsWith('/converters')) return 'converters';
+    if (location.pathname === '/create' || location.pathname.startsWith('/edit')) return 'editor';
+    if (location.pathname === '/playlists') return 'playlists';
+    return 'home';
   };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-white">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
 
   return (
-    <div className="min-h-screen bg-white flex flex-col">
-      {currentView !== 'public-page' && (
-        <Header
-          onAuthClick={() => setAuthModalOpen(true)}
-          onNavigate={handleNavigation}
-          currentView={currentView}
-        />
-      )}
+    <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
+      <Header
+        onAuthClick={() => openAuth('signup')}
+        onNavigate={handleNavigation}
+        currentView={getCurrentView() as any}
+      />
 
-      <main className="flex-1">
-        {currentView === 'home' && (
-          <LandingPage onGetStarted={() => setAuthModalOpen(true)} />
-        )}
+      <main className="flex-grow">
+        <Routes>
+          {/* Public Routes */}
+          <Route path="/" element={<LandingPage onGetStarted={() => openAuth('signup')} />} />
 
-        {currentView === 'converter' && (
-          <Converter />
-        )}
+          {/* Converter Routes */}
+          <Route path="/converters" element={<DownloaderPage />} />
+          <Route path="/converters/youtube" element={<YouTubePage onAuthRequired={() => openAuth('signup')} />} />
+          <Route path="/converters/instagram" element={<InstagramPage onAuthRequired={() => openAuth('signup')} />} />
+          <Route path="/converters/facebook" element={<FacebookPage onAuthRequired={() => openAuth('signup')} />} />
+          <Route path="/converters/tiktok" element={<TikTokPage onAuthRequired={() => openAuth('signup')} />} />
+          <Route path="/converters/soundcloud" element={<SoundCloudPage onAuthRequired={() => openAuth('signup')} />} />
+          <Route path="/converters/spotify" element={<SpotifyPage onAuthRequired={() => openAuth('signup')} />} />
 
-        {currentView === 'dashboard' && user && (
-          <Dashboard
-            onCreatePage={() => {
-              setEditingPageId(undefined);
-              handleNavigation('editor');
-            }}
-            onUpgrade={() => setSubscriptionModalOpen(true)}
+          {/* Protected Routes */}
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <Dashboard
+                  onCreatePage={() => navigate('/create')}
+                  onUpgrade={() => setIsSubscriptionModalOpen(true)}
+                />
+              </ProtectedRoute>
+            }
           />
-        )}
 
-        {currentView === 'editor' && user && (
-          <PageEditor
-            pageId={editingPageId}
-            onSave={() => handleNavigation('dashboard')}
-            onCancel={() => handleNavigation('dashboard')}
+          <Route
+            path="/create"
+            element={
+              <ProtectedRoute>
+                <PageEditorWrapper />
+              </ProtectedRoute>
+            }
           />
-        )}
 
-        {currentView === 'public-page' && (
-          <PublicPage
-            slug={pageSlug}
-            onDownload={handleDownload}
-            onAuthRequired={() => setAuthModalOpen(true)}
+          <Route
+            path="/playlists"
+            element={
+              <ProtectedRoute>
+                <PlaylistManager />
+              </ProtectedRoute>
+            }
           />
-        )}
+
+          <Route
+            path="/edit/:pageId"
+            element={
+              <ProtectedRoute>
+                <PageEditorWrapper />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Public Profile - Must be last */}
+          <Route
+            path="/:slug"
+            element={
+              <PublicPageWrapper
+                onAuthRequired={() => openAuth('signup')}
+                onDownload={(id, name) => setDownloadModalLink({ id, fileName: name })}
+              />
+            }
+          />
+        </Routes>
       </main>
 
-      {currentView !== 'public-page' && <Footer />}
+      {/* Conditionally render Footer: simpler to just always render it, or check location */}
+      <FooterWrapper />
 
       <AuthModal
-        isOpen={authModalOpen}
-        onClose={() => setAuthModalOpen(false)}
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        initialMode={authMode}
       />
 
       <SubscriptionManager
-        isOpen={subscriptionModalOpen}
-        onClose={() => setSubscriptionModalOpen(false)}
+        isOpen={isSubscriptionModalOpen}
+        onClose={() => setIsSubscriptionModalOpen(false)}
       />
 
-      {selectedDownload && (
-        <DownloadModal
-          isOpen={downloadModalOpen}
-          onClose={() => {
-            setDownloadModalOpen(false);
-            setSelectedDownload(null);
-          }}
-          linkId={selectedDownload.linkId}
-          fileName={selectedDownload.fileName}
-          onUpgrade={() => {
-            setDownloadModalOpen(false);
-            setSubscriptionModalOpen(true);
-          }}
-        />
-      )}
+      <DownloadModal
+        isOpen={!!downloadModalLink}
+        onClose={() => setDownloadModalLink(null)}
+        linkId={downloadModalLink?.id || ''}
+        fileName={downloadModalLink?.fileName || ''}
+        onUpgrade={() => setIsSubscriptionModalOpen(true)}
+      />
     </div>
   );
 }
 
-function App() {
+// Wrapper to handle params for Editor
+function PageEditorWrapper() {
+  const { pageId } = useParams();
+  const navigate = useNavigate();
+
+  return (
+    <PageEditor
+      pageId={pageId}
+      onSave={() => navigate('/dashboard')}
+      onCancel={() => navigate('/dashboard')}
+    />
+  );
+}
+
+// Wrapper for Public Page to handle props
+interface PublicPageWrapperProps {
+  onAuthRequired: () => void;
+  onDownload: (linkId: string, filename: string) => void;
+}
+
+function PublicPageWrapper({ onAuthRequired, onDownload }: PublicPageWrapperProps) {
+  const { slug } = useParams();
+  // Filter out system routes that might fall through if not careful
+  const systemRoutes = ['login', 'signup', 'dashboard', 'create'];
+
+  if (!slug || systemRoutes.includes(slug)) return <Navigate to="/" />;
+
+  return (
+    <PublicPage
+      slug={slug}
+      onDownload={onDownload}
+      onAuthRequired={onAuthRequired}
+    />
+  );
+}
+
+// Wrapper to hide footer on public pages if desired
+function FooterWrapper() {
+  const location = useLocation();
+  // Crude check for public page (anything not a system route)
+  // Better: Only show footer on known pages
+  const isSystemPage = ['/', '/dashboard', '/create', '/converters'].some(path =>
+    location.pathname === path || location.pathname.startsWith(path + '/')
+  );
+
+  if (!isSystemPage) return null; // Hide on public pages
+
+  return <Footer />;
+}
+
+export default function App() {
   return (
     <AuthProvider>
       <AppContent />
     </AuthProvider>
   );
 }
-
-export default App;

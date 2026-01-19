@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { PLAN_LIMITS, DB_TABLES, ERROR_MESSAGES, PlanType } from '../config/constants';
 
 export interface DownloadCheckResult {
   allowed: boolean;
@@ -10,7 +11,7 @@ export interface DownloadCheckResult {
 
 export async function checkDownloadQuota(userId: string): Promise<DownloadCheckResult> {
   const { data: profile, error } = await supabase
-    .from('user_profiles')
+    .from(DB_TABLES.USER_PROFILES)
     .select('plan_type, downloads_used, downloads_limit')
     .eq('id', userId)
     .single();
@@ -18,14 +19,14 @@ export async function checkDownloadQuota(userId: string): Promise<DownloadCheckR
   if (error || !profile) {
     return {
       allowed: false,
-      reason: 'Unable to verify your account. Please try again.'
+      reason: ERROR_MESSAGES.QUOTA_CHECK_FAILED
     };
   }
 
   if (profile.plan_type === 'free') {
     return {
       allowed: false,
-      reason: 'Downloads are not available on the free plan.',
+      reason: ERROR_MESSAGES.NO_DOWNLOADS_FREE,
       needsUpgrade: true,
       planType: 'free'
     };
@@ -34,7 +35,7 @@ export async function checkDownloadQuota(userId: string): Promise<DownloadCheckR
   if (profile.downloads_used >= profile.downloads_limit) {
     return {
       allowed: false,
-      reason: `You've reached your download limit (${profile.downloads_limit} downloads per month).`,
+      reason: ERROR_MESSAGES.QUOTA_EXCEEDED(profile.downloads_limit),
       needsUpgrade: true,
       planType: profile.plan_type,
       remainingDownloads: 0
@@ -58,7 +59,7 @@ export async function recordDownload(
   try {
     const watermarked = planType === 'starter';
 
-    await supabase.from('downloads').insert({
+    await supabase.from(DB_TABLES.DOWNLOADS).insert({
       user_id: userId,
       link_id: linkId,
       page_id: pageId,
@@ -68,21 +69,21 @@ export async function recordDownload(
     });
 
     const { data: profile } = await supabase
-      .from('user_profiles')
+      .from(DB_TABLES.USER_PROFILES)
       .select('downloads_used')
       .eq('id', userId)
       .single();
 
     if (profile) {
       await supabase
-        .from('user_profiles')
+        .from(DB_TABLES.USER_PROFILES)
         .update({ downloads_used: profile.downloads_used + 1 })
         .eq('id', userId);
     }
 
     await supabase.rpc('increment', {
       row_id: linkId,
-      table_name: 'links',
+      table_name: DB_TABLES.LINKS,
       column_name: 'download_count'
     });
 
@@ -94,25 +95,13 @@ export async function recordDownload(
 }
 
 export function getWatermarkMessage(planType: string): string {
-  switch (planType) {
-    case 'creator':
-      return 'Clean file without watermark';
-    case 'starter':
-      return 'File includes invisible metadata watermark';
-    case 'free':
-      return 'File includes audio and branding watermark';
-    default:
-      return '';
-  }
+  const plan = PLAN_LIMITS[planType as PlanType];
+  return plan ? plan.watermarkMessage : '';
 }
 
 export function getPlanLimits(planType: string): { downloads: number; price: number } {
-  switch (planType) {
-    case 'creator':
-      return { downloads: 20, price: 7 };
-    case 'starter':
-      return { downloads: 3, price: 4 };
-    default:
-      return { downloads: 0, price: 0 };
-  }
+  const plan = PLAN_LIMITS[planType as PlanType];
+  return plan
+    ? { downloads: plan.downloads, price: plan.price }
+    : { downloads: 0, price: 0 };
 }
