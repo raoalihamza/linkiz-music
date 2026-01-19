@@ -4,6 +4,7 @@
  */
 
 import { env } from '../config/env';
+import { supabase } from '../lib/supabase';
 
 /**
  * API Error class for better error handling
@@ -38,12 +39,23 @@ async function apiRequest<T>(
 ): Promise<T> {
   const url = `${API_CONFIG.baseUrl}${endpoint}`;
 
+  // Get the current session to include the auth token
+  const { data: { session } } = await supabase.auth.getSession();
+
+  // Build headers with optional Authorization
+  const headers: Record<string, string> = {
+    ...API_CONFIG.defaultHeaders,
+    ...(options.headers as Record<string, string> || {}),
+  };
+
+  // Add Authorization header if user is logged in
+  if (session?.access_token) {
+    headers.Authorization = `Bearer ${session.access_token}`;
+  }
+
   const config: RequestInit = {
     ...options,
-    headers: {
-      ...API_CONFIG.defaultHeaders,
-      ...options.headers,
-    },
+    headers,
   };
 
   try {
